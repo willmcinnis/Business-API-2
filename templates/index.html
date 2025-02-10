@@ -163,6 +163,17 @@
             </div>
             
             <div class="form-group">
+                <label for="revenue">Revenue</label>
+                <select id="revenue">
+                    <option value="">Select revenue range</option>
+                    <option value="under1m">Under $1M</option>
+                    <option value="1m-5m">$1M - $5M</option>
+                    <option value="5m-10m">$5M - $10M</option>
+                    <option value="over10m">$10M+</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
                 <label for="employee-min">Minimum Employees</label>
                 <input type="number" id="employee-min" placeholder="e.g., 10" min="0">
             </div>
@@ -275,6 +286,7 @@
 
             const country = document.getElementById("country").value;
             const industry = document.getElementById("industry").value;
+            const revenue = document.getElementById("revenue").value;
             const minEmployees = document.getElementById("employee-min").value;
             const maxEmployees = document.getElementById("employee-max").value;
 
@@ -290,6 +302,7 @@
 
             if (country) queryParams.country = country;
             if (industry) queryParams.industry = industry;
+            if (revenue) queryParams.revenue = revenue;
             if (minEmployees) queryParams.employees_count_gte = parseInt(minEmployees, 10);
             if (maxEmployees) queryParams.employees_count_lte = parseInt(maxEmployees, 10);
 
