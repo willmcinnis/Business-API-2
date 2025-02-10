@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business API Search</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        #search-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select, input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        #pagination-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        #results {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .result {
+            border-bottom: 1px solid #eee;
+            padding: 15px 0;
+        }
+        .result:last-child {
+            border-bottom: none;
+        }
+        .error {
+            color: #dc3545;
+            padding: 10px;
+            border: 1px solid #dc3545;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        .meta-info {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 8px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: black;
+        }
+        .employee-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .employee-btn:hover {
+            background: #218838;
+        }
+        .employee-card {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="search-container">
+            <h2>Business Search</h2>
+            <div class="form-group">
+                <label for="country">Country</label>
+                <select id="country">
+                    <option value="">Select a country</option>
+                    {% for country in countries %}
+                    <option value="{{ country }}">{{ country }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="industry">Industry</label>
+                <select id="industry">
+                    <option value="">Select an industry</option>
+                    {% for industry in industries %}
+                    <option value="{{ industry }}">{{ industry }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="employee-min">Minimum Employees</label>
+                <input type="number" id="employee-min" placeholder="e.g., 10" min="0">
+            </div>
+            
+            <div class="form-group">
+                <label for="employee-max">Maximum Employees</label>
+                <input type="number" id="employee-max" placeholder="e.g., 1000" min="0">
+            </div>
+            
+            <button id="search-btn">Search</button>
+        </div>
+
+        <div id="pagination-container" style="display: none;">
+            <button id="prev-btn" disabled>Previous</button>
+            <button id="next-btn" disabled>Next</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <div id="employeeModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Employee Information</h2>
+            <div id="employeeResults"></div>
+        </div>
+    </div>
+    <script>
+        let currentPage = 0;
+        const pageLimit = 10;
+        let isLoading = false;
+        let totalResults = 0;
+
+        const modal = document.getElementById("employeeModal");
+        const span = document.getElementsByClassName("close")[0];
+
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        document.getElementById("search-btn").addEventListener("click", () => {
+            currentPage = 0;
+            fetchResults();
+        });
+
+        document.getElementById("next-btn").addEventListener("click", () => {
+            currentPage++;
+            fetchResults();
+        });
+
+        document.getElementById("prev-btn").addEventListener("click", () => {
+            if (currentPage > 0) {
+                currentPage--;
+                fetchResults();
+            }
+        });
+
+        async function getEmployeeInfo(companyId) {
+            const employeeResults = document.getElementById("employeeResults");
+            employeeResults.innerHTML = '<div class="loading">Loading employee information...</div>';
+            modal.style.display = "block";
+
+            try {
+                const response = await fetch(`/employees/${companyId}`);
+                if (!response.ok) throw new Error('Failed to fetch employee data');
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    employeeResults.innerHTML = `<div class="error">${data.error}</div>`;
+                    return;
+                }
+
+                if (!data.employees || data.employees.length === 0) {
+                    employeeResults.innerHTML = '<div>No employee information available.</div>';
+                    return;
+                }
+
+                employeeResults.innerHTML = `
+                    <div>Found ${data.total} employees. Showing top ${data.employees.length} decision makers:</div>
+                    ${data.employees.map(employee => `
+                        <div class="employee-card">
+                            <h3>${employee.name || 'Unknown Name'}</h3>
+                            <p><strong>Title:</strong> ${employee.title || 'N/A'}</p>
+                            <p><strong>Position:</strong> ${employee.experience || 'N/A'}</p>
+                            <p><strong>Location:</strong> ${employee.location || 'N/A'}</p>
+                            ${employee.profile_url ? `
+                                <p><a href="${employee.profile_url}" target="_blank">View Profile</a></p>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                `;
+            } catch (error) {
+                employeeResults.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function fetchResults() {
+            const resultsContainer = document.getElementById("results");
+            const paginationContainer = document.getElementById("pagination-container");
+            const searchBtn = document.getElementById("search-btn");
+            const prevBtn = document.getElementById("prev-btn");
+            const nextBtn = document.getElementById("next-btn");
+
+            const country = document.getElementById("country").value;
+            const industry = document.getElementById("industry").value;
+            const minEmployees = document.getElementById("employee-min").value;
+            const maxEmployees = document.getElementById("employee-max").value;
+
+            if (!country && !industry) {
+                resultsContainer.innerHTML = '<div class="error">Please select at least a country or industry</div>';
+                return;
+            }
+
+            const queryParams = {
+                page: currentPage,
+                limit: pageLimit
+            };
+
+            if (country) queryParams.country = country;
+            if (industry) queryParams.industry = industry;
+            if (minEmployees) queryParams.employees_count_gte = parseInt(minEmployees, 10);
+            if (maxEmployees) queryParams.employees_count_lte = parseInt(maxEmployees, 10);
+
+            resultsContainer.innerHTML = '<div class="loading">Loading results...</div>';
+            searchBtn.disabled = true;
+            isLoading = true;
+
+            try {
+                const response = await fetch("/search", {
+                    method: "POST",
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify(queryParams)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Request failed with status ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                totalResults = data.total || 0;
+                paginationContainer.style.display = totalResults > pageLimit ? "flex" : "none";
+                
+                prevBtn.disabled = currentPage === 0;
+                nextBtn.disabled = !data.hasMore;
+
+                if (!data.results || data.results.length === 0) {
+                    resultsContainer.innerHTML = '<div class="result">No results found.</div>';
+                    return;
+                }
+
+                resultsContainer.innerHTML = data.results.map(company => `
+                    <div class="result">
+                        <h3>${company.Name || 'Unnamed Company'}</h3>
+                        <div class="meta-info">
+                            <p><strong>Industry:</strong> ${company.Industry || 'N/A'}</p>
+                            <p><strong>Location:</strong> ${company.Location || 'N/A'}</p>
+                            <p><strong>Employees:</strong> ${company['Employees Count'] || 'N/A'}</p>
+                            <p><strong>Type:</strong> ${company.Type || 'N/A'}</p>
+                            <p><strong>Website:</strong> ${
+                                company.Website && company.Website !== 'N/A' 
+                                ? `<a href="${company.Website}" target="_blank">${company.Website}</a>`
+                                : 'N/A'
+                            }</p>
+                            <button onclick="getEmployeeInfo('${company.ID}')" class="employee-btn">
+                                Employee Info/Contact
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                resultsContainer.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                console.error('Error:', error);
+            } finally {
+                searchBtn.disabled = false;
+                isLoading = false;
+            }
+        }
+    </script>
+</body>
+</html>
